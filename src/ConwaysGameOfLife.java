@@ -276,6 +276,16 @@ public class ConwaysGameOfLife extends JFrame implements ActionListener {
 
         @Override
         public void run() {
+            while (true) {
+                runOnce();
+                try {
+                    Thread.sleep(1000 / i_movesPerSecond);
+                } catch (InterruptedException ex) {
+                }
+            }
+        }
+
+        public void runOnce() {
             boolean[][] gameBoard = new boolean[d_gameBoardSize.width+2][d_gameBoardSize.height+2];
             for (Point current : point) {
                 gameBoard[current.x+1][current.y+1] = true;
@@ -297,7 +307,7 @@ public class ConwaysGameOfLife extends JFrame implements ActionListener {
                         // Cell is alive, Can the cell live? (2-3)
                         if ((surrounding == 2) || (surrounding == 3)) {
                             survivingCells.add(new Point(i-1,j-1));
-                        } 
+                        }
                     } else {
                         // Cell is dead, will the cell be given birth? (3)
                         if (surrounding == 3) {
@@ -309,10 +319,6 @@ public class ConwaysGameOfLife extends JFrame implements ActionListener {
             resetBoard();
             point.addAll(survivingCells);
             repaint();
-            try {
-                Thread.sleep(1000/i_movesPerSecond);
-                run();
-            } catch (InterruptedException ex) {}
         }
     }
 }
