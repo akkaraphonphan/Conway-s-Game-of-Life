@@ -1,9 +1,10 @@
+import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.concurrent.*;
 import java.util.ConcurrentModificationException;
-import javax.swing.*;
 
 /**
  * Conway's game of life is a cellular automaton devised by the
@@ -166,8 +167,7 @@ public class ConwaysGameOfLife extends JFrame implements ActionListener {
     
     private class GameBoard extends JPanel implements ComponentListener, MouseListener, MouseMotionListener, Runnable {
         private Dimension d_gameBoardSize = null;
-        private ArrayList<Point> point = new ArrayList<Point>(0);
-        
+        private CopyOnWriteArrayList<Point> point = new CopyOnWriteArrayList<Point>();
         public GameBoard() {
             // Add resizing listener
             addComponentListener(this);
@@ -176,7 +176,7 @@ public class ConwaysGameOfLife extends JFrame implements ActionListener {
         }
         
         private void updateArraySize() {
-            ArrayList<Point> removeList = new ArrayList<Point>(0);
+            CopyOnWriteArrayList<Point> removeList = new CopyOnWriteArrayList<Point>();
             for (Point current : point) {
                 if ((current.x > d_gameBoardSize.width-1) || (current.y > d_gameBoardSize.height-1)) {
                     removeList.add(current);
@@ -228,7 +228,9 @@ public class ConwaysGameOfLife extends JFrame implements ActionListener {
                     g.setColor(Color.blue);
                     g.fillRect(BLOCK_SIZE + (BLOCK_SIZE*newPoint.x), BLOCK_SIZE + (BLOCK_SIZE*newPoint.y), BLOCK_SIZE, BLOCK_SIZE);
                 }
-            } catch (ConcurrentModificationException cme) {}
+            } catch (ConcurrentModificationException cme) {
+                System.out.println("CONCURRENCY EXCEPTION !!!");
+            }
             // Setup grid
             g.setColor(Color.BLACK);
             for (int i=0; i<=d_gameBoardSize.width; i++) {
@@ -290,7 +292,7 @@ public class ConwaysGameOfLife extends JFrame implements ActionListener {
             for (Point current : point) {
                 gameBoard[current.x+1][current.y+1] = true;
             }
-            ArrayList<Point> survivingCells = new ArrayList<Point>(0);
+            CopyOnWriteArrayList<Point> survivingCells = new CopyOnWriteArrayList<Point>();
             // Iterate through the array, follow game of life rules
             for (int i=1; i<gameBoard.length-1; i++) {
                 for (int j=1; j<gameBoard[0].length-1; j++) {
