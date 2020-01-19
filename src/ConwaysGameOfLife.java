@@ -168,6 +168,80 @@ public class ConwaysGameOfLife extends JFrame implements ActionListener {
     private class GameBoard extends JPanel implements ComponentListener, MouseListener, MouseMotionListener, Runnable {
         private Dimension d_gameBoardSize = null;
         private CopyOnWriteArrayList<Point> point = new CopyOnWriteArrayList<Point>();
+
+        ExecutorService fixedThreadPool = Executors.newFixedThreadPool(8);
+
+        private class BladeRunner implements Runnable {
+            int columnIndex;
+            CopyOnWriteArrayList<Point> gameboard;
+            CopyOnWriteArrayList<Point> updated;
+            CountDownLatch done;
+
+
+            public BladeRunner(int columnIndex, CopyOnWriteArrayList<Point> gameboard, CountDownLatch done, CopyOnWriteArrayList<Point> updated) {
+                this.columnIndex = columnIndex;
+                this.gameboard = gameboard;
+                this.done = done;
+                this.updated = updated;
+            }
+
+            public void run() {
+                boolean[] gameBoardColumn = new boolean[d_gameBoardSize.height + 2];
+                boolean[][] adjacentGameBoard = new boolean[3][d_gameBoardSize.height + 2];
+                for (Point current : gameboard) {
+                    if (current.x == columnIndex) {
+                        gameBoardColumn[current.y + 1] = true;
+                    }
+                    if (current.x >= columnIndex - 1 && current.x <= columnIndex + 1) {
+                        int columnPosition = current.x - (columnIndex - 1);
+                        adjacentGameBoard[columnPosition][current.y + 1] = true;
+                    }
+                }
+
+                // Iterate through the array, follow game of life rules
+                for (int j = 1; j < gameBoardColumn.length - 1; j++) {
+                    int surrounding = 0;
+                    if (adjacentGameBoard[0][j - 1]) {
+                        surrounding++;
+                    }
+                    if (adjacentGameBoard[0][j]) {
+                        surrounding++;
+                    }
+                    if (adjacentGameBoard[0][j + 1]) {
+                        surrounding++;
+                    }
+                    if (adjacentGameBoard[1][j - 1]) {
+                        surrounding++;
+                    }
+                    if (adjacentGameBoard[1][j + 1]) {
+                        surrounding++;
+                    }
+                    if (adjacentGameBoard[2][j - 1]) {
+                        surrounding++;
+                    }
+                    if (adjacentGameBoard[2][j]) {
+                        surrounding++;
+                    }
+                    if (adjacentGameBoard[2][j + 1]) {
+                        surrounding++;
+                    }
+                    if (adjacentGameBoard[1][j]) {
+                        // Cell is alive, Can the cell live? (2-3)
+                        if ((surrounding == 2) || (surrounding == 3)) {
+                            updated.add(new Point(columnIndex, j - 1));
+                        }
+                    } else {
+                        // Cell is dead, will the cell be given birth? (3)
+                        if (surrounding == 3) {
+                            updated.add(new Point(columnIndex, j - 1));
+                        }
+                    }
+                }
+                done.countDown();
+            }
+
+
+        }
         public GameBoard() {
             // Add resizing listener
             addComponentListener(this);
@@ -278,48 +352,38 @@ public class ConwaysGameOfLife extends JFrame implements ActionListener {
 
         @Override
         public void run() {
-            while (true) {
+            long before = System.currentTimeMillis();
+            for (int i = 0; i < 100000; i++) {
                 runOnce();
-                try {
-                    Thread.sleep(1000 / i_movesPerSecond);
-                } catch (InterruptedException ex) {
-                }
+//                try {
+//                    Thread.sleep(1000 / i_movesPerSecond);
+//                } catch (InterruptedException ex) {
+//                }
             }
+            long after = System.currentTimeMillis();
+            long timeTaken = after - before;
+            System.out.println("Time taken: " + timeTaken + "ms");
         }
 
         public void runOnce() {
-            boolean[][] gameBoard = new boolean[d_gameBoardSize.width+2][d_gameBoardSize.height+2];
-            for (Point current : point) {
-                gameBoard[current.x+1][current.y+1] = true;
-            }
-            CopyOnWriteArrayList<Point> survivingCells = new CopyOnWriteArrayList<Point>();
+            int totalColumns = d_gameBoardSize.width;
+            CountDownLatch done = new CountDownLatch(totalColumns);
+            ArrayList<BladeRunner> runners = new ArrayList<BladeRunner>();
+            CopyOnWriteArrayList<Point> updated = new CopyOnWriteArrayList<Point>();
             // Iterate through the array, follow game of life rules
-            for (int i=1; i<gameBoard.length-1; i++) {
-                for (int j=1; j<gameBoard[0].length-1; j++) {
-                    int surrounding = 0;
-                    if (gameBoard[i-1][j-1]) { surrounding++; }
-                    if (gameBoard[i-1][j])   { surrounding++; }
-                    if (gameBoard[i-1][j+1]) { surrounding++; }
-                    if (gameBoard[i][j-1])   { surrounding++; }
-                    if (gameBoard[i][j+1])   { surrounding++; }
-                    if (gameBoard[i+1][j-1]) { surrounding++; }
-                    if (gameBoard[i+1][j])   { surrounding++; }
-                    if (gameBoard[i+1][j+1]) { surrounding++; }
-                    if (gameBoard[i][j]) {
-                        // Cell is alive, Can the cell live? (2-3)
-                        if ((surrounding == 2) || (surrounding == 3)) {
-                            survivingCells.add(new Point(i-1,j-1));
-                        }
-                    } else {
-                        // Cell is dead, will the cell be given birth? (3)
-                        if (surrounding == 3) {
-                            survivingCells.add(new Point(i-1,j-1));
-                        }
-                    }
-                }
+            for (int i = 0; i < totalColumns; i++) {
+                BladeRunner bladeRunner = new BladeRunner(i, point, done, updated);
+                runners.add(bladeRunner);
+                fixedThreadPool.execute(bladeRunner);
             }
-            resetBoard();
-            point.addAll(survivingCells);
+            try {
+                done.await();
+            } catch (InterruptedException ex) {}
+
+//            resetBoard();
+            for (BladeRunner bladeRunner : runners) {
+                point = updated;
+            }
             repaint();
         }
     }
