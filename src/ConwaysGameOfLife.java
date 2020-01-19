@@ -169,7 +169,7 @@ public class ConwaysGameOfLife extends JFrame implements ActionListener {
         private Dimension d_gameBoardSize = null;
         private CopyOnWriteArrayList<Point> point = new CopyOnWriteArrayList<Point>();
 
-        ExecutorService fixedThreadPool = Executors.newFixedThreadPool(8);
+        ExecutorService fixedThreadPool = Executors.newFixedThreadPool(4);
 
         private class BladeRunner implements Runnable {
             int columnIndex;
